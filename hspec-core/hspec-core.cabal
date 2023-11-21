@@ -33,7 +33,7 @@ library
   hs-source-dirs:
       src
       vendor
-  ghc-options: -Wall -fno-warn-incomplete-uni-patterns
+  ghc-options: -Wall -fno-warn-incomplete-uni-patterns -fhide-source-paths -Werror=operator-whitespace
   build-depends:
       HUnit ==1.6.*
     , QuickCheck >=2.13.1
@@ -117,7 +117,7 @@ test-suite spec
       src
       vendor
       test
-  ghc-options: -Wall -fno-warn-incomplete-uni-patterns
+  ghc-options: -Wall -fno-warn-incomplete-uni-patterns -fhide-source-paths -Werror=operator-whitespace
   cpp-options: -DTEST
   build-depends:
       HUnit ==1.6.*
