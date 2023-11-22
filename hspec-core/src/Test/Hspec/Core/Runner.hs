@@ -17,6 +17,8 @@ module Test.Hspec.Core.Runner (
 , isSuccess
 , evaluateSummary
 
+, applyTagsToSpec
+
 -- * Running a spec
 {- |
 To run a spec `hspec` performs a sequence of steps:
@@ -423,7 +425,7 @@ specToEvalForest config =
   >>> addDefaultDescriptions
   >>> failFocusedItems config
   >>> failPendingItems config
-  >>> foo (configTags config)
+  >>> configMapSpecForest config config
   >>> focusSpec config
   >>> toEvalItemForest params
   >>> applyDryRun config
@@ -469,8 +471,8 @@ toEvalItemForest params = bimapForest id toEvalItem . filterForest itemIsFocused
     withUnit :: ActionWith () -> IO ()
     withUnit action = action ()
 
-foo :: Map String TagValue -> [SpecTree ()] -> [SpecTree ()]
-foo config_tags_ = filterForest pTag . bimapForest id setPending
+applyTagsToSpec :: Config -> [SpecTree ()] -> [SpecTree ()]
+applyTagsToSpec config = filterForest pTag . bimapForest id setPending
   where
     setPending :: Item () -> Item ()
     setPending item = item { itemExample = \ params hook progress -> foldl' setPendingFoo (itemExample item params hook progress) ouao }
@@ -486,7 +488,7 @@ foo config_tags_ = filterForest pTag . bimapForest id setPending
         ouao :: [(String, String)]
         ouao = [(name, reason) | (name, SetPending reason) <- config_tags]
 
-    config_tags = Map.toList config_tags_
+    config_tags = Map.toList $ configTags config
 
     pTag :: Item a -> Bool
     pTag = (||) <$> itemIsFocused <*> mk_p_tag

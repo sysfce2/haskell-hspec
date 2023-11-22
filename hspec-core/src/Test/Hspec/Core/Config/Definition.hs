@@ -36,6 +36,8 @@ import           GetOpt.Declarative
 import           Data.Map (Map)
 import qualified Data.Map as Map
 
+import Test.Hspec.Core.Tree (SpecTree)
+
 data TagValue = Select | Discard | SetPending String
   deriving (Eq, Show)
 
@@ -97,6 +99,8 @@ data Config = Config {
 , configFormatter :: Maybe V1.Formatter
 , configHtmlOutput :: Bool
 , configConcurrentJobs :: Maybe Int
+, configOptions :: [Option Config]
+, configMapSpecForest :: Config -> [SpecTree ()] -> [SpecTree ()]
 }
 {-# DEPRECATED configFormatter "Use [@useFormatter@](https://hackage.haskell.org/package/hspec-api/docs/Test-Hspec-Api-Formatters-V1.html#v:useFormatter) instead." #-}
 
@@ -141,7 +145,13 @@ mkDefaultConfig formatters = Config {
 , configFormatter = Nothing
 , configHtmlOutput = False
 , configConcurrentJobs = Nothing
+, configOptions = [foo]
+, configMapSpecForest = \ _ -> id
 }
+
+foo :: Option Config
+foo = option "tags" (argument "TAGS" return addTags) "XXXXXXXXXXXXXXXX TODO XXXXXXXXXXXXX"
+
 
 defaultDiffContext :: Int
 defaultDiffContext = 3
@@ -432,7 +442,6 @@ commandLineOnlyOptions = [
     mkOptionNoArg "ignore-dot-hspec" Nothing setIgnoreConfigFile "do not read options from ~/.hspec and .hspec"
   , mkOption "match" (Just 'm') (argument "PATTERN" return addMatch) "only run examples that match given PATTERN"
   , option "skip" (argument "PATTERN" return addSkip) "skip examples that match given PATTERN"
-  , option "tags" (argument "TAGS" return addTags) "XXXXXXXXXXXXXXXX TODO XXXXXXXXXXXXX"
   ]
   where
     setIgnoreConfigFile config = config {configIgnoreConfigFile = True}
@@ -451,7 +460,6 @@ insertTag (name, new) = Map.alter f name
   where
     f :: Maybe TagValue -> Maybe TagValue
     f _ = new
-
 
 parseTags :: String -> [(String, Maybe TagValue)]
 parseTags = map parseTag . words

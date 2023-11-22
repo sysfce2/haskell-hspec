@@ -129,6 +129,9 @@ spec = do
           e4 <- newMock
           hspec args $ do
             H.modifyConfig ( \ config -> config { H.configTags = Map.insert "slow" (H.SetPending "slow item") $ H.configTags config } )
+
+            H.modifyConfig ( \ config -> config { H.configMapSpecForest = \ c -> H.applyTagsToSpec c . H.configMapSpecForest config c } )
+
             H.it "example 1" >>> H.tag "slow" $ mockAction e1
             H.it "example 2" >>> H.tag "bar" $ mockAction e2
             H.it "example 3" >>> H.tag "slow" >>> H.tag "bar" $ mockAction e3
