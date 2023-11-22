@@ -11,6 +11,7 @@ import           Test.Hspec.Core.Config
 import           Test.Hspec.Core.Config.Options hiding (parseOptions)
 import qualified Test.Hspec.Core.Config.Options as Options
 import           Test.Hspec.Core.Config.Definition (TagValue(..))
+import           Test.Hspec.Core.Tags (tagOption)
 
 fromLeft :: Either a b -> a
 fromLeft (Left a) = a
@@ -46,7 +47,7 @@ spec = do
         help `shouldBe` expected
 
     context "with --tags" $ do
-      let parseOptions_ args = snd <$> Options.parseOptions defaultConfig "my-spec" [] Nothing [] args
+      let parseOptions_ args = snd <$> Options.parseOptions defaultConfig { configOptions = [tagOption] } "my-spec" [] Nothing [] args
 
       it "" $ do
         configTags <$> parseOptions_ ["--tags", "foo"] `shouldBe` Right (Map.fromList [("foo", Select)])

@@ -95,6 +95,7 @@ library
       Test.Hspec.Core.Runner.Result
       Test.Hspec.Core.Shuffle
       Test.Hspec.Core.Spec.Monad
+      Test.Hspec.Core.Tags
       Test.Hspec.Core.Timer
       Test.Hspec.Core.Tree
       Control.Concurrent.Async
@@ -184,6 +185,7 @@ test-suite spec
       Test.Hspec.Core.Shuffle
       Test.Hspec.Core.Spec
       Test.Hspec.Core.Spec.Monad
+      Test.Hspec.Core.Tags
       Test.Hspec.Core.Timer
       Test.Hspec.Core.Tree
       Test.Hspec.Core.Util
@@ -220,6 +222,7 @@ test-suite spec
       Test.Hspec.Core.RunnerSpec
       Test.Hspec.Core.ShuffleSpec
       Test.Hspec.Core.SpecSpec
+      Test.Hspec.Core.TagsSpec
       Test.Hspec.Core.TimerSpec
       Test.Hspec.Core.TreeSpec
       Test.Hspec.Core.UtilSpec

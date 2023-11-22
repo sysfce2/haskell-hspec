@@ -15,7 +15,6 @@ module Test.Hspec.Core.Config.Definition (
 
 #ifdef TEST
 , splitOn
-, parseTags
 #endif
 ) where
 
@@ -145,13 +144,9 @@ mkDefaultConfig formatters = Config {
 , configFormatter = Nothing
 , configHtmlOutput = False
 , configConcurrentJobs = Nothing
-, configOptions = [foo]
+, configOptions = []
 , configMapSpecForest = \ _ -> id
 }
-
-foo :: Option Config
-foo = option "tags" (argument "TAGS" return addTags) "XXXXXXXXXXXXXXXX TODO XXXXXXXXXXXXX"
-
 
 defaultDiffContext :: Int
 defaultDiffContext = 3
@@ -451,24 +446,6 @@ addMatch s c = c {configFilterPredicate = Just (filterPredicate s) `filterOr` co
 
 addSkip :: String -> Config -> Config
 addSkip s c = c {configSkipPredicate = Just (filterPredicate s) `filterOr` configSkipPredicate c}
-
-addTags :: String -> Config -> Config
-addTags input c = c { configTags = foldl' (\ tags tag -> insertTag tag tags) (configTags c) (parseTags input) }
-
-insertTag :: (String, Maybe TagValue) -> Map String TagValue -> Map String TagValue
-insertTag (name, new) = Map.alter f name
-  where
-    f :: Maybe TagValue -> Maybe TagValue
-    f _ = new
-
-parseTags :: String -> [(String, Maybe TagValue)]
-parseTags = map parseTag . words
-
-parseTag :: String -> (String, Maybe TagValue)
-parseTag input = case input of
-  '-' : name -> (name, Just Discard)
-  '+' : name -> (name, Nothing)
-  name -> (name, Just Select)
 
 filterOr :: Maybe (Path -> Bool) -> Maybe (Path -> Bool) -> Maybe (Path -> Bool)
 filterOr p1_ p2_ = case (p1_, p2_) of

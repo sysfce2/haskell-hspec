@@ -17,8 +17,6 @@ module Test.Hspec.Core.Runner (
 , isSuccess
 , evaluateSummary
 
-, applyTagsToSpec
-
 -- * Running a spec
 {- |
 To run a spec `hspec` performs a sequence of steps:
@@ -119,10 +117,6 @@ import           Test.Hspec.Core.Clock
 import           Test.Hspec.Core.Spec hiding (pruneTree, pruneForest)
 import           Test.Hspec.Core.Tree (formatDefaultDescription)
 import           Test.Hspec.Core.Config
-import           Test.Hspec.Core.Config.Definition (TagValue(..))
-import           Data.Map (Map)
-import qualified Data.Map as Map
-import           Data.Dynamic
 import           Test.Hspec.Core.Format (Format, FormatConfig(..))
 import qualified Test.Hspec.Core.Formatters.V1 as V1
 import qualified Test.Hspec.Core.Formatters.V2 as V2
@@ -470,40 +464,6 @@ toEvalItemForest params = bimapForest id toEvalItem . filterForest itemIsFocused
 
     withUnit :: ActionWith () -> IO ()
     withUnit action = action ()
-
-applyTagsToSpec :: Config -> [SpecTree ()] -> [SpecTree ()]
-applyTagsToSpec config = filterForest pTag . bimapForest id setPending
-  where
-    setPending :: Item () -> Item ()
-    setPending item = item { itemExample = \ params hook progress -> foldl' setPendingFoo (itemExample item params hook progress) ouao }
-      where
-        setPendingFoo :: IO Result -> (String, String) -> IO Result
-        setPendingFoo result (name, reason)
-          | name `elem` tags = return $ Result "" (Pending Nothing $ Just reason)
-          | otherwise  = result
-
-        tags :: [String]
-        tags = mapMaybe fromDynamic $ itemTags item
-
-        ouao :: [(String, String)]
-        ouao = [(name, reason) | (name, SetPending reason) <- config_tags]
-
-    config_tags = Map.toList $ configTags config
-
-    pTag :: Item a -> Bool
-    pTag = (||) <$> itemIsFocused <*> mk_p_tag
-
-    mk_p_tag :: Item a -> Bool
-    mk_p_tag item = and $ map mk_p config_tags
-      where
-        mk_p :: (String, TagValue) -> Bool
-        mk_p (name, value) = case value of
-          Select -> name `elem` tags
-          Discard -> name `notElem` tags
-          SetPending _ -> True
-
-        tags :: [String]
-        tags = mapMaybe fromDynamic $ itemTags item
 
 dumpFailureReport :: Config -> Integer -> QC.Args -> [Path] -> IO ()
 dumpFailureReport config seed qcArgs xs = do

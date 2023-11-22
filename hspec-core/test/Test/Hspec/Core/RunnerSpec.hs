@@ -18,7 +18,6 @@ import           Mock
 import           Test.Hspec.Core.FailureReport (FailureReport(..))
 import qualified Test.Hspec.Expectations as H
 import qualified Test.Hspec.Core.Config.Definition as H -- FIXME
-import qualified Data.Map as Map
 import qualified Test.Hspec.Core.Spec as H
 import           Test.Hspec.Core.Runner (UseColor(..), ProgressReporting(..))
 import qualified Test.Hspec.Core.Runner as H
@@ -29,6 +28,7 @@ import qualified Test.QuickCheck as QC
 import qualified Test.Hspec.Core.Hooks as H
 
 import           Test.Hspec.Core.Formatters.Pretty.ParserSpec (Person(..))
+import qualified Test.Hspec.Core.Tags as H
 
 runPropFoo :: [String] -> IO String
 runPropFoo args = unlines . normalizeSummary . lines <$> do
@@ -128,10 +128,7 @@ spec = do
           e3 <- newMock
           e4 <- newMock
           hspec args $ do
-            H.modifyConfig ( \ config -> config { H.configTags = Map.insert "slow" (H.SetPending "slow item") $ H.configTags config } )
-
-            H.modifyConfig ( \ config -> config { H.configMapSpecForest = \ c -> H.applyTagsToSpec c . H.configMapSpecForest config c } )
-
+            H.useTags
             H.it "example 1" >>> H.tag "slow" $ mockAction e1
             H.it "example 2" >>> H.tag "bar" $ mockAction e2
             H.it "example 3" >>> H.tag "slow" >>> H.tag "bar" $ mockAction e3
