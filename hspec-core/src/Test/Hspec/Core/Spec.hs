@@ -27,6 +27,7 @@ module Test.Hspec.Core.Spec (
 
 , parallel
 , sequential
+, tag
 
 -- * The @SpecM@ monad
 , Test.Hspec.Core.Spec.Monad.Spec
@@ -91,6 +92,8 @@ import           Test.Hspec.Core.Example
 import           Test.Hspec.Core.Hooks
 import           Test.Hspec.Core.Tree
 import           Test.Hspec.Core.Spec.Monad
+
+import           Data.Dynamic
 
 -- | The @describe@ function combines a list of specs into a larger spec.
 describe :: HasCallStack => String -> SpecWith a -> SpecWith a
@@ -216,3 +219,6 @@ pendingWith = throwIO . Pending location . Just
 -- @since 2.10.0
 getSpecDescriptionPath :: SpecM a [String]
 getSpecDescriptionPath = SpecM $ lift $ reverse <$> asks envSpecDescriptionPath
+
+tag :: String -> SpecWith a -> SpecWith a
+tag name = mapSpecItem_ $ \ item -> item { itemTags = toDyn name : itemTags item }

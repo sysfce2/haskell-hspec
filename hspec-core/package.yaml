@@ -37,6 +37,8 @@ dependencies:
 
   - array # for Diff
 
+  - containers
+
 source-dirs:
   - src
   - vendor

@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 module Test.Hspec.Core.Config.Definition (
   Config(..)
+, TagValue(..)
 , ColorMode(..)
 , UnicodeMode(..)
 , filterOr
@@ -14,6 +15,7 @@ module Test.Hspec.Core.Config.Definition (
 
 #ifdef TEST
 , splitOn
+, parseTags
 #endif
 ) where
 
@@ -31,7 +33,11 @@ import qualified Test.Hspec.Core.Formatters.V1.Monad as V1
 import           Test.Hspec.Core.Util
 
 import           GetOpt.Declarative
+import           Data.Map (Map)
+import qualified Data.Map as Map
 
+data TagValue = Select | Discard | SetPending String
+  deriving (Eq, Show)
 
 data ColorMode = ColorAuto | ColorNever | ColorAlways
   deriving (Eq, Show)
@@ -60,6 +66,8 @@ data Config = Config {
 -- that satisfy the predicate are run.
 , configFilterPredicate :: Maybe (Path -> Bool)
 , configSkipPredicate :: Maybe (Path -> Bool)
+, configTags :: Map String TagValue -- ^ @since 2.12.0
+
 , configQuickCheckSeed :: Maybe Integer
 , configQuickCheckMaxSuccess :: Maybe Int
 , configQuickCheckMaxDiscardRatio :: Maybe Int
@@ -110,6 +118,8 @@ mkDefaultConfig formatters = Config {
 , configRerunAllOnSuccess = False
 , configFilterPredicate = Nothing
 , configSkipPredicate = Nothing
+, configTags = Map.empty
+
 , configQuickCheckSeed = Nothing
 , configQuickCheckMaxSuccess = Nothing
 , configQuickCheckMaxDiscardRatio = Nothing
@@ -422,6 +432,7 @@ commandLineOnlyOptions = [
     mkOptionNoArg "ignore-dot-hspec" Nothing setIgnoreConfigFile "do not read options from ~/.hspec and .hspec"
   , mkOption "match" (Just 'm') (argument "PATTERN" return addMatch) "only run examples that match given PATTERN"
   , option "skip" (argument "PATTERN" return addSkip) "skip examples that match given PATTERN"
+  , option "tags" (argument "TAGS" return addTags) "XXXXXXXXXXXXXXXX TODO XXXXXXXXXXXXX"
   ]
   where
     setIgnoreConfigFile config = config {configIgnoreConfigFile = True}
@@ -431,6 +442,25 @@ addMatch s c = c {configFilterPredicate = Just (filterPredicate s) `filterOr` co
 
 addSkip :: String -> Config -> Config
 addSkip s c = c {configSkipPredicate = Just (filterPredicate s) `filterOr` configSkipPredicate c}
+
+addTags :: String -> Config -> Config
+addTags input c = c { configTags = foldl' (\ tags tag -> insertTag tag tags) (configTags c) (parseTags input) }
+
+insertTag :: (String, Maybe TagValue) -> Map String TagValue -> Map String TagValue
+insertTag (name, new) = Map.alter f name
+  where
+    f :: Maybe TagValue -> Maybe TagValue
+    f _ = new
+
+
+parseTags :: String -> [(String, Maybe TagValue)]
+parseTags = map parseTag . words
+
+parseTag :: String -> (String, Maybe TagValue)
+parseTag input = case input of
+  '-' : name -> (name, Just Discard)
+  '+' : name -> (name, Nothing)
+  name -> (name, Just Select)
 
 filterOr :: Maybe (Path -> Bool) -> Maybe (Path -> Bool) -> Maybe (Path -> Bool)
 filterOr p1_ p2_ = case (p1_, p2_) of

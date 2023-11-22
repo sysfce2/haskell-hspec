@@ -30,6 +30,7 @@ import           Prelude ()
 import           Test.Hspec.Core.Compat
 
 import           Data.Char
+import           Data.Dynamic
 import           System.FilePath
 import qualified Data.CallStack as CallStack
 
@@ -114,6 +115,12 @@ data Item a = Item {
   -- | A flag that indicates whether this spec item is focused.
 , itemIsFocused :: Bool
 
+  -- | ... TODO ...
+  --
+  -- @since 2.12.0
+, itemTags :: [Dynamic]
+
+
   -- | Example for behavior
 , itemExample :: Params -> (ActionWith a -> IO ()) -> ProgressCallback -> IO Result
 }
@@ -134,6 +141,7 @@ specItem s e = Leaf Item {
   , itemLocation = location
   , itemIsParallelizable = Nothing
   , itemIsFocused = False
+  , itemTags = []
   , itemExample = safeEvaluateExample e
   }
 
