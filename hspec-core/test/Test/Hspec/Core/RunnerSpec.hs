@@ -9,7 +9,7 @@ import           Prelude ()
 import           Helper
 
 import           System.IO
-import           System.Environment (withArgs, withProgName, getArgs, setEnv, unsetEnv)
+import           System.Environment (withProgName, getArgs, setEnv, unsetEnv)
 import           System.Exit
 import           Control.Concurrent
 import           Control.Concurrent.Async
@@ -17,7 +17,6 @@ import           Mock
 
 import           Test.Hspec.Core.FailureReport (FailureReport(..))
 import qualified Test.Hspec.Expectations as H
-import qualified Test.Hspec.Core.Config.Definition as H -- FIXME
 import qualified Test.Hspec.Core.Spec as H
 import           Test.Hspec.Core.Runner (UseColor(..), ProgressReporting(..))
 import qualified Test.Hspec.Core.Runner as H
@@ -28,7 +27,6 @@ import qualified Test.QuickCheck as QC
 import qualified Test.Hspec.Core.Hooks as H
 
 import           Test.Hspec.Core.Formatters.Pretty.ParserSpec (Person(..))
-import qualified Test.Hspec.Core.Tags as H
 
 runPropFoo :: [String] -> IO String
 runPropFoo args = unlines . normalizeSummary . lines <$> do
@@ -119,33 +117,6 @@ spec = do
           , (["baz"], "example 3")
           ]
         }
-
-    context "with --tags" $ do
-      let
-        foo args = do
-          e1 <- newMock
-          e2 <- newMock
-          e3 <- newMock
-          e4 <- newMock
-          hspec args $ do
-            H.useTags
-            H.it "example 1" >>> H.tag "slow" $ mockAction e1
-            H.it "example 2" >>> H.tag "bar" $ mockAction e2
-            H.it "example 3" >>> H.tag "slow" >>> H.tag "bar" $ mockAction e3
-            H.it "example 4" $ mockAction e4
-          (,,,) <$> mockCounter e1 <*> mockCounter e2 <*> mockCounter e3 <*> mockCounter e4
-
-      it "" $ do
-        foo [] `shouldReturn` (0, 1, 0, 1)
-
-      it "" $ do
-        foo ["--tag=slow"] `shouldReturn` (1, 0, 1, 0)
-
-      it "" $ do
-        foo ["--tag=bar"] `shouldReturn` (0, 1, 0, 0)
-
-      it "" $ do
-        foo ["--tag=+slow"] `shouldReturn` (1, 1, 1, 1)
 
     context "with --rerun" $ do
       let

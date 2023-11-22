@@ -2,16 +2,13 @@
 module Test.Hspec.Core.Config.OptionsSpec (spec) where
 
 import           Prelude ()
-import           Helper hiding (Discard)
+import           Helper
 
 import           System.Exit
-import qualified Data.Map as Map
 
 import           Test.Hspec.Core.Config
 import           Test.Hspec.Core.Config.Options hiding (parseOptions)
 import qualified Test.Hspec.Core.Config.Options as Options
-import           Test.Hspec.Core.Config.Definition (TagValue(..))
-import           Test.Hspec.Core.Tags (tagOption)
 
 fromLeft :: Either a b -> a
 fromLeft (Left a) = a
@@ -45,24 +42,6 @@ spec = do
       xit "prints help" $ do
         expected <- readFile "help.txt"
         help `shouldBe` expected
-
-    context "with --tags" $ do
-      let parseOptions_ args = snd <$> Options.parseOptions defaultConfig { configOptions = [tagOption] } "my-spec" [] Nothing [] args
-
-      it "" $ do
-        configTags <$> parseOptions_ ["--tags", "foo"] `shouldBe` Right (Map.fromList [("foo", Select)])
-
-      it "" $ do
-        configTags <$> parseOptions_ ["--tags", "foo", "--tags", "-foo"] `shouldBe` Right (Map.fromList [("foo", Discard)])
-
-      it "" $ do
-        configTags <$> parseOptions_ ["--tags", "foo -foo"] `shouldBe` Right (Map.fromList [("foo", Discard)])
-
-      it "" $ do
-        configTags <$> parseOptions_ ["--tags", "-foo +foo"] `shouldBe` Right (Map.fromList [])
-
-      it "" $ do
-        configTags <$> parseOptions_ ["--tags", "foo +foo"] `shouldBe` Right (Map.fromList [])
 
     describe "RUNNER OPTIONS" $ do
       let parseOptions_ args = snd <$> Options.parseOptions defaultConfig "my-spec" [] Nothing [] args

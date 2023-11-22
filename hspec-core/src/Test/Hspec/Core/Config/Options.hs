@@ -59,14 +59,14 @@ parseCommandLineOptions prog args config = case Declarative.parseCommandLineOpti
   Failure message -> Left (ExitFailure 1, message)
   where
     formatters = configAvailableFormatters config
-    extensionOptions = configOptions config
+    extensionOptions = configCustomOptions config
 
 parseEnvironmentOptions :: [(String, String)] -> Config -> Either (ExitCode, String) ([String], Config)
 parseEnvironmentOptions env config = case Declarative.parseEnvironmentOptions "HSPEC" env config (concatMap snd $ commandLineOptions formatters extensionOptions) of
   (warnings, c) -> Right (map formatWarning warnings, c)
   where
     formatters = configAvailableFormatters config
-    extensionOptions = configOptions config
+    extensionOptions = configCustomOptions config
     formatWarning (Declarative.InvalidValue name value) = "invalid value `" ++ value ++ "' for environment variable " ++ name
 
 parseFileOptions :: String -> Config -> ConfigFile -> Either (ExitCode, String) Config
@@ -86,7 +86,7 @@ parseOtherOptions prog source args config = case parse (interpretOptions options
     options = filter Declarative.optionDocumented $ concatMap snd (otherOptions formatters extensionOptions)
 
     formatters = configAvailableFormatters config
-    extensionOptions = configOptions config
+    extensionOptions = configCustomOptions config
 
     failure err = Left (ExitFailure 1, prog ++ ": " ++ message)
       where

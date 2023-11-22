@@ -1,18 +1,15 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 module Test.Hspec.Core.AnnotationsSpec (spec) where
 
 import           Prelude ()
 import           Helper
 
-import           Data.Typeable
-
 import           Test.Hspec.Core.Annotations
 
 newtype A = A Int
-  deriving (Eq, Show, Typeable)
+  deriving (Eq, Show)
 
 newtype B = B Int
-  deriving (Eq, Show, Typeable)
+  deriving (Eq, Show)
 
 spec :: Spec
 spec = do
@@ -27,6 +24,6 @@ spec = do
       getValue annotations `shouldBe` Just (B 42)
 
     context "when a value of the same type is added multiple times" $ do
-      it "gives the value that was added last precedence" $ do
+      it "gives precedence to the value that was added last" $ do
         let annotations = setValue (A 42) $  setValue (A 23) mempty
         getValue annotations `shouldBe` Just (A 42)

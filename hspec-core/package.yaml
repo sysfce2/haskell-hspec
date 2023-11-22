@@ -52,6 +52,8 @@ when:
 
 library:
   exposed-modules:
+    - Test.Hspec.CI
+    - Test.Hspec.Tags
     - Test.Hspec.Core.Spec
     - Test.Hspec.Core.Hooks
     - Test.Hspec.Core.Runner

@@ -54,6 +54,8 @@ library
     , time
     , transformers >=0.2.2.0
   exposed-modules:
+      Test.Hspec.CI
+      Test.Hspec.Tags
       Test.Hspec.Core.Spec
       Test.Hspec.Core.Hooks
       Test.Hspec.Core.Runner
@@ -78,6 +80,7 @@ library
       Test.Hspec.Core.Config.Options
       Test.Hspec.Core.Example
       Test.Hspec.Core.Example.Location
+      Test.Hspec.Core.Extension
       Test.Hspec.Core.FailureReport
       Test.Hspec.Core.Formatters.Diff
       Test.Hspec.Core.Formatters.Internal
@@ -95,7 +98,6 @@ library
       Test.Hspec.Core.Runner.Result
       Test.Hspec.Core.Shuffle
       Test.Hspec.Core.Spec.Monad
-      Test.Hspec.Core.Tags
       Test.Hspec.Core.Timer
       Test.Hspec.Core.Tree
       Control.Concurrent.Async
@@ -152,6 +154,7 @@ test-suite spec
       GetOpt.Declarative.Types
       GetOpt.Declarative.Util
       NonEmpty
+      Test.Hspec.CI
       Test.Hspec.Core.Annotations
       Test.Hspec.Core.Clock
       Test.Hspec.Core.Compat
@@ -160,6 +163,7 @@ test-suite spec
       Test.Hspec.Core.Config.Options
       Test.Hspec.Core.Example
       Test.Hspec.Core.Example.Location
+      Test.Hspec.Core.Extension
       Test.Hspec.Core.FailureReport
       Test.Hspec.Core.Format
       Test.Hspec.Core.Formatters
@@ -185,10 +189,10 @@ test-suite spec
       Test.Hspec.Core.Shuffle
       Test.Hspec.Core.Spec
       Test.Hspec.Core.Spec.Monad
-      Test.Hspec.Core.Tags
       Test.Hspec.Core.Timer
       Test.Hspec.Core.Tree
       Test.Hspec.Core.Util
+      Test.Hspec.Tags
       Control.Concurrent.Async
       Data.Algorithm.Diff
       GetOpt.Declarative.EnvironmentSpec
@@ -196,6 +200,7 @@ test-suite spec
       Helper
       Mock
       SpecHook
+      Test.Hspec.CISpec
       Test.Hspec.Core.AnnotationsSpec
       Test.Hspec.Core.ClockSpec
       Test.Hspec.Core.CompatSpec
@@ -222,10 +227,10 @@ test-suite spec
       Test.Hspec.Core.RunnerSpec
       Test.Hspec.Core.ShuffleSpec
       Test.Hspec.Core.SpecSpec
-      Test.Hspec.Core.TagsSpec
       Test.Hspec.Core.TimerSpec
       Test.Hspec.Core.TreeSpec
       Test.Hspec.Core.UtilSpec
+      Test.Hspec.TagsSpec
       Paths_hspec_core
   default-language: Haskell2010
   if impl(ghc >= 8.4.1)

@@ -1,7 +1,7 @@
 module Test.Hspec.Core.Config.DefinitionSpec (spec) where
 
 import           Prelude ()
-import           Helper hiding (Discard)
+import           Helper
 
 import           Test.Hspec.Core.Config.Definition
 

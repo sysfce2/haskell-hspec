@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP #-}
 module Test.Hspec.Core.Config.Definition (
   Config(..)
-, TagValue(..)
 , ColorMode(..)
 , UnicodeMode(..)
 , filterOr
@@ -12,6 +11,15 @@ module Test.Hspec.Core.Config.Definition (
 , smallCheckOptions
 , quickCheckOptions
 , runnerOptions
+
+, flag
+, option
+, argument
+
+, setConfigAnnotation
+, getConfigAnnotation
+, addCustomOption
+, addSpecTransformation
 
 #ifdef TEST
 , splitOn
@@ -25,6 +33,9 @@ import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.IO (openTempFile, hClose)
 import           System.Process (system)
 
+import           Test.Hspec.Core.Annotations (Annotations)
+import qualified Test.Hspec.Core.Annotations as Annotations
+import           Test.Hspec.Core.Tree (SpecTree)
 import           Test.Hspec.Core.Example (Params(..), defaultParams)
 import           Test.Hspec.Core.Format (Format, FormatConfig)
 import           Test.Hspec.Core.Formatters.Pretty (pretty2)
@@ -32,13 +43,18 @@ import qualified Test.Hspec.Core.Formatters.V1.Monad as V1
 import           Test.Hspec.Core.Util
 
 import           GetOpt.Declarative
-import           Data.Map (Map)
-import qualified Data.Map as Map
 
-import Test.Hspec.Core.Tree (SpecTree)
+setConfigAnnotation :: Typeable value => value -> Config -> Config
+setConfigAnnotation value config = config { configAnnotations = Annotations.setValue value $ configAnnotations config }
 
-data TagValue = Select | Discard | SetPending String
-  deriving (Eq, Show)
+getConfigAnnotation :: Typeable value => Config -> Maybe value
+getConfigAnnotation = Annotations.getValue . configAnnotations
+
+addCustomOption :: Option Config -> Config -> Config
+addCustomOption opt config = config { configCustomOptions = opt : configCustomOptions config }
+
+addSpecTransformation :: (Config -> [SpecTree ()] -> [SpecTree ()]) -> Config -> Config
+addSpecTransformation f config = config { configMapSpecForest = \ c -> f c . configMapSpecForest config c }
 
 data ColorMode = ColorAuto | ColorNever | ColorAlways
   deriving (Eq, Show)
@@ -67,8 +83,6 @@ data Config = Config {
 -- that satisfy the predicate are run.
 , configFilterPredicate :: Maybe (Path -> Bool)
 , configSkipPredicate :: Maybe (Path -> Bool)
-, configTags :: Map String TagValue -- ^ @since 2.12.0
-
 , configQuickCheckSeed :: Maybe Integer
 , configQuickCheckMaxSuccess :: Maybe Int
 , configQuickCheckMaxDiscardRatio :: Maybe Int
@@ -98,8 +112,9 @@ data Config = Config {
 , configFormatter :: Maybe V1.Formatter
 , configHtmlOutput :: Bool
 , configConcurrentJobs :: Maybe Int
-, configOptions :: [Option Config]
-, configMapSpecForest :: Config -> [SpecTree ()] -> [SpecTree ()]
+, configCustomOptions :: [Option Config] -- ^ @since 2.12.0
+, configAnnotations :: Annotations -- ^ @since 2.12.0
+, configMapSpecForest :: Config -> [SpecTree ()] -> [SpecTree ()] -- ^ @since 2.12.0
 }
 {-# DEPRECATED configFormatter "Use [@useFormatter@](https://hackage.haskell.org/package/hspec-api/docs/Test-Hspec-Api-Formatters-V1.html#v:useFormatter) instead." #-}
 
@@ -121,8 +136,6 @@ mkDefaultConfig formatters = Config {
 , configRerunAllOnSuccess = False
 , configFilterPredicate = Nothing
 , configSkipPredicate = Nothing
-, configTags = Map.empty
-
 , configQuickCheckSeed = Nothing
 , configQuickCheckMaxSuccess = Nothing
 , configQuickCheckMaxDiscardRatio = Nothing
@@ -144,7 +157,8 @@ mkDefaultConfig formatters = Config {
 , configFormatter = Nothing
 , configHtmlOutput = False
 , configConcurrentJobs = Nothing
-, configOptions = []
+, configAnnotations = mempty
+, configCustomOptions = []
 , configMapSpecForest = \ _ -> id
 }
 
@@ -168,8 +182,8 @@ withTempFile dir file contents action = do
 option :: String -> OptionSetter config -> String -> Option config
 option name arg help = Option name Nothing arg help True
 
-mkFlag :: String -> (Bool -> Config -> Config) -> String -> Option Config
-mkFlag name setter = option name (Flag setter)
+flag :: String -> (Bool -> Config -> Config) -> String -> Option Config
+flag name setter = option name (Flag setter)
 
 mkOptionNoArg :: String -> Maybe Char -> (Config -> Config) -> String -> Option Config
 mkOptionNoArg name shortcut setter help = Option name shortcut (NoArg setter) help True
@@ -186,22 +200,22 @@ argument name parser setter = Arg name $ \ input c -> flip setter c <$> parser i
 formatterOptions :: [(String, FormatConfig -> IO Format)] -> [Option Config]
 formatterOptions formatters = [
     mkOption "format" (Just 'f') (argument "NAME" readFormatter setFormatter) helpForFormat
-  , mkFlag "color" setColor "colorize the output"
-  , mkFlag "unicode" setUnicode "output unicode"
-  , mkFlag "diff" setDiff "show colorized diffs"
+  , flag "color" setColor "colorize the output"
+  , flag "unicode" setUnicode "output unicode"
+  , flag "diff" setDiff "show colorized diffs"
   , option "diff-context" (argument "N" readDiffContext setDiffContext) $ unlines [
         "output N lines of diff context (default: " <> show defaultDiffContext <> ")"
       , "use a value of 'full' to see the full context"
       ]
   , option "diff-command" (argument "CMD" return setDiffCommand) "use an external diff command\nexample: --diff-command=\"git diff\""
-  , mkFlag "pretty" setPretty "try to pretty-print diff values"
+  , flag "pretty" setPretty "try to pretty-print diff values"
   , mkOptionNoArg "show-exceptions" Nothing setShowException "use `show` when formatting exceptions"
   , mkOptionNoArg "display-exceptions" Nothing setDisplayException "use `displayException` when formatting exceptions"
 
-  , mkFlag "times" setTimes "report times for individual spec items"
+  , flag "times" setTimes "report times for individual spec items"
   , mkOptionNoArg "print-cpu-time" Nothing setPrintCpuTime "include used CPU time in summary"
   , printSlowItemsOption
-  , mkFlag "expert" setExpertMode "be less verbose"
+  , flag "expert" setExpertMode "be less verbose"
 
     -- undocumented for now, as we probably want to change this to produce a
     -- standalone HTML report in the future
@@ -345,18 +359,18 @@ splitOn sep = go
 
 runnerOptions :: [Option Config]
 runnerOptions = [
-    mkFlag "dry-run" setDryRun "pretend that everything passed; don't verify anything"
-  , mkFlag "focused-only" setFocusedOnly "do not run anything, unless there are focused spec items"
+    flag "dry-run" setDryRun "pretend that everything passed; don't verify anything"
+  , flag "focused-only" setFocusedOnly "do not run anything, unless there are focused spec items"
 
-  , undocumented $ mkFlag "fail-on-focused" setFailOnFocused "fail on focused spec items"
-  , undocumented $ mkFlag "fail-on-pending" setFailOnPending "fail on pending spec items"
+  , undocumented $ flag "fail-on-focused" setFailOnFocused "fail on focused spec items"
+  , undocumented $ flag "fail-on-pending" setFailOnPending "fail on pending spec items"
 
   , mkOption    "fail-on" Nothing (argument "ITEMS" readFailOnItems (setFailOnItems True )) helpForFailOn
   , mkOption "no-fail-on" Nothing (argument "ITEMS" readFailOnItems (setFailOnItems False)) helpForFailOn
-  , mkFlag "strict" setStrict $ "same as --fail-on=" <> showFailOnItems strict
+  , flag "strict" setStrict $ "same as --fail-on=" <> showFailOnItems strict
 
-  , mkFlag "fail-fast" setFailFast "abort on first failure"
-  , mkFlag "randomize" setRandomize "randomize execution order"
+  , flag "fail-fast" setFailFast "abort on first failure"
+  , flag "randomize" setRandomize "randomize execution order"
   , mkOptionNoArg "rerun" (Just 'r') setRerun "rerun all examples that failed in the previous test run (only works in combination with --failure-report or in GHCi)"
   , option "failure-report" (argument "FILE" return setFailureReport) "read/write a failure report for use with --rerun"
   , mkOptionNoArg "rerun-all-on-success" Nothing setRerunAllOnSuccess "run the whole test suite after a previously failing rerun succeeds for the first time (only works in combination with --rerun)"
