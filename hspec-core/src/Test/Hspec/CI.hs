@@ -53,7 +53,7 @@ use = do
   runIO (lookupEnv "CI") >>= \ case
     Nothing -> pass
     Just _ -> modifyConfig (setCiFlag True)
-  registerOption ciFlag
+  registerOption "hspec-ci" ciFlag
   addTransformation applyTagsToSpec
 
 applyTagsToSpec :: Config -> [SpecTree ()] -> [SpecTree ()]

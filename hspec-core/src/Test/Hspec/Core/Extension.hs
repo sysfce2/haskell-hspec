@@ -52,8 +52,8 @@ option = Config.option
 argument :: String -> (String -> Maybe a) -> (a -> Config -> Config) -> OptionSetter
 argument = Config.argument
 
-registerOption :: Option -> SpecWith a
-registerOption = modifyConfig . Config.addCustomOption
+registerOption :: String -> Option -> SpecWith a
+registerOption section = modifyConfig . Config.addCustomOption section
 
 addTransformation :: (Config -> [SpecTree ()] -> [SpecTree ()]) -> SpecWith a
 addTransformation = modifyConfig . Config.addSpecTransformation

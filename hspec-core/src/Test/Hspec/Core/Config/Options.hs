@@ -22,19 +22,18 @@ type EnvVar = [String]
 envVarName :: String
 envVarName = "HSPEC_OPTIONS"
 
-commandLineOptions :: [(String, FormatConfig -> IO Format)] -> [Declarative.Option Config] -> [(String, [Declarative.Option Config])]
+commandLineOptions :: [(String, FormatConfig -> IO Format)] -> [(String, [Declarative.Option Config])] -> [(String, [Declarative.Option Config])]
 commandLineOptions formatters extensionOptions =
     ("OPTIONS", commandLineOnlyOptions)
   : otherOptions formatters extensionOptions
 
-otherOptions :: [(String, FormatConfig -> IO Format)] -> [Declarative.Option Config] -> [(String, [Declarative.Option Config])]
+otherOptions :: [(String, FormatConfig -> IO Format)] -> [(String, [Declarative.Option Config])] -> [(String, [Declarative.Option Config])]
 otherOptions formatters extensionOptions = [
     ("RUNNER OPTIONS", runnerOptions)
   , ("FORMATTER OPTIONS", formatterOptions formatters)
   , ("OPTIONS FOR QUICKCHECK", quickCheckOptions)
   , ("OPTIONS FOR SMALLCHECK", smallCheckOptions)
-  , ("OPTIONS FOR EXTENSIONS", extensionOptions)
-  ]
+  ] ++ extensionOptions
 
 ignoreConfigFile :: Config -> [String] -> IO Bool
 ignoreConfigFile config args = do

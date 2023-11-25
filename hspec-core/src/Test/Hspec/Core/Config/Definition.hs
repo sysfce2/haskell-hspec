@@ -50,8 +50,8 @@ setConfigAnnotation value config = config { configAnnotations = Annotations.setV
 getConfigAnnotation :: Typeable value => Config -> Maybe value
 getConfigAnnotation = Annotations.getValue . configAnnotations
 
-addCustomOption :: Option Config -> Config -> Config
-addCustomOption opt config = config { configCustomOptions = opt : configCustomOptions config }
+addCustomOption :: String -> Option Config -> Config -> Config
+addCustomOption section opt config = config { configCustomOptions = (section, [opt]) : configCustomOptions config }
 
 addSpecTransformation :: (Config -> [SpecTree ()] -> [SpecTree ()]) -> Config -> Config
 addSpecTransformation f config = config { configMapSpecForest = \ c -> f c . configMapSpecForest config c }
@@ -112,7 +112,7 @@ data Config = Config {
 , configFormatter :: Maybe V1.Formatter
 , configHtmlOutput :: Bool
 , configConcurrentJobs :: Maybe Int
-, configCustomOptions :: [Option Config] -- ^ @since 2.12.0
+, configCustomOptions :: [(String, [Option Config])] -- ^ @since 2.12.0
 , configAnnotations :: Annotations -- ^ @since 2.12.0
 , configMapSpecForest :: Config -> [SpecTree ()] -> [SpecTree ()] -- ^ @since 2.12.0
 }

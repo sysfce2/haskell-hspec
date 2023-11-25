@@ -87,7 +87,7 @@ exclude name = addTagFilter (Tag name) . SetPending $ unlines [
 
 use :: SpecWith a
 use = do
-  registerOption tagsOption
+  registerOption "hspec-tags" tagsOption
   addTransformation filterByTags
 
 filterByTags :: Config -> [SpecTree ()] -> [SpecTree ()]
@@ -126,7 +126,7 @@ filterByTags config = filterItems byTag . mapItems setPendingByTag
     filterByTag = Map.toList $ getTagFilters config
 
 tagsOption :: Option
-tagsOption = option "tags" (argument "TAGS" return addTagFilters) "XXXXXXXXXXXXXXXX TODO XXXXXXXXXXXXX"
+tagsOption = option "tags" (argument "TAGS" return addTagFilters) "TAGS can be a list of tag names."
   where
     addTagFilters :: String -> Config -> Config
     addTagFilters input = modifyTagFilters $ \ start -> (foldl' (\ tags tag_ -> insertTag tag_ tags) start (parseTagFilters input))
