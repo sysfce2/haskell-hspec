@@ -95,6 +95,7 @@ or `hspecWithResult`.
 , specToEvalForest
 , colorOutputSupported
 , unicodeOutputSupported
+, toConfigOption
 #endif
 ) where
 
@@ -102,6 +103,7 @@ import           Prelude ()
 import           Test.Hspec.Core.Compat
 
 import           NonEmpty (nonEmpty)
+import qualified Data.Map as Map
 import           System.IO
 import           System.Environment (getArgs, withArgs)
 import           System.Exit (exitFailure)
@@ -110,19 +112,25 @@ import           Control.Monad.ST
 import           Data.STRef
 
 import           System.Console.ANSI (hSupportsANSI, hHideCursor, hShowCursor)
-import qualified Test.QuickCheck as QC
+import           Test.QuickCheck (property)
+
+import qualified GetOpt.Declarative as Declarative
 
 import           Test.Hspec.Core.Util (Path)
 import           Test.Hspec.Core.Clock
 import           Test.Hspec.Core.Spec hiding (pruneTree, pruneForest)
 import           Test.Hspec.Core.Tree (formatDefaultDescription)
 import           Test.Hspec.Core.Config
+import           Test.Hspec.Core.Config.Definition (setConfigValues)
 import           Test.Hspec.Core.Format (Format, FormatConfig(..))
 import qualified Test.Hspec.Core.Formatters.V1 as V1
 import qualified Test.Hspec.Core.Formatters.V2 as V2
 import           Test.Hspec.Core.FailureReport
 import           Test.Hspec.Core.QuickCheck.Util
 import           Test.Hspec.Core.Shuffle
+import           Test.Hspec.Core.Example (exampleOptions)
+import           Test.Hspec.Core.Example.Options (Flag, OptionsParser(..), OptionsSet, toDeclarativeOption, {- setOptions, -} getOptions)
+import           Test.Hspec.Core.QuickCheck.Options
 
 import           Test.Hspec.Core.Runner.PrintSlowSpecItems
 import           Test.Hspec.Core.Runner.Eval hiding (ColorMode(..), Tree(..))
@@ -191,13 +199,33 @@ hspec = hspecWith defaultConfig
 evalSpec :: Config -> SpecWith a -> IO (Config, [SpecTree a])
 evalSpec config spec = do
   (Endo f, forest) <- runSpecM spec
-  return (f config, forest)
+  let
+    options = extractItemOptions forest
+    c = addExtensionOptions options config
+  return (f c , forest)
+
+addExtensionOptions :: [(String, [Declarative.Option Config])] -> Config -> Config
+addExtensionOptions options config = config { configExtensionOptions = configExtensionOptions config ++ options }
+
+extractItemOptions :: [SpecTree a] -> [(String, [Declarative.Option Config])]
+extractItemOptions =
+    map toConfigOption
+  . Map.elems . Map.fromList
+  . catMaybes . (qc :) . map itemOptions . concatMap toList
+  where
+    qc = exampleOptions (property True)
+
+toConfigOption :: OptionsParser OptionsSet -> (String, [Declarative.Option Config])
+toConfigOption (OptionsParser title flags) = (title, map toOption flags)
+  where
+    toOption :: Flag OptionsSet -> Declarative.Option Config
+    toOption = Declarative.liftOption configValues setConfigValues . toDeclarativeOption
 
 -- Add a seed to given config if there is none.  That way the same seed is used
 -- for all properties.  This helps with --seed and --rerun.
 ensureSeed :: Config -> IO (Config, Integer)
 ensureSeed config = do
-  seed <- case configSeed config <|> configQuickCheckSeed config of
+  seed <- case configSeed config <|> configQuickCheckSeed config of -- FIXME: test for deprecatedSeed
     Nothing -> toInteger <$> newSeed
     Just seed -> return seed
   return (config { configSeed = Just seed }, seed)
@@ -324,7 +352,7 @@ failWith reason item = item {itemExample = example}
     failure :: ResultStatus
     failure = Failure Nothing (Reason reason)
 
-    example :: Params -> (ActionWith a -> IO ()) -> ProgressCallback -> IO Result
+    example :: Params () -> (ActionWith a -> IO ()) -> ProgressCallback -> IO Result
     example params hook p = do
       Result info status <- itemExample item params hook p
       return $ Result info $ case status of
@@ -340,7 +368,7 @@ failPendingItems config
 failPending :: forall a. Item a -> Item a
 failPending item = item {itemExample = example}
   where
-    example :: Params -> (ActionWith a -> IO ()) -> ProgressCallback -> IO Result
+    example :: Params () -> (ActionWith a -> IO ()) -> ProgressCallback -> IO Result
     example params hook p = do
       Result info status <- itemExample item params hook p
       return $ Result info $ case status of
@@ -362,7 +390,8 @@ runSpecForest_ oldFailureReport spec c_ = do
 
   let
     filteredSpec = specToEvalForest seed config spec
-    qcArgs = configQuickCheckArgs config
+
+    qopts = getOptions (configValues config)
     !numberOfItems = countEvalItems filteredSpec
 
   when (configFailOnEmpty config && numberOfItems == 0) $ do
@@ -408,7 +437,7 @@ runSpecForest_ oldFailureReport spec c_ = do
     failures :: [Path]
     failures = map resultItemPath $ filter resultItemIsFailure $ specResultItems results
 
-  dumpFailureReport config seed qcArgs failures
+  dumpFailureReport seed config qopts failures
 
   return results
 
@@ -425,8 +454,17 @@ specToEvalForest seed config =
   >>> randomize
   >>> pruneForest
   where
-    params :: Params
-    params = Params (configQuickCheckArgs config) (configSmallCheckDepth config)
+    opts :: OptionsSet
+    opts = configValues config
+
+    params :: Params ()
+    params = Params {
+      paramsSeed = seed
+    , paramsQuickCheckArgs = toQuickCheckArgs seed $ getOptions opts
+    , paramsSmallCheckDepth = configSmallCheckDepth config
+    , paramsOptions = ()
+    , paramsOptionsSet = opts
+    }
 
     randomize :: [Tree c a] -> [Tree c a]
     randomize
@@ -446,11 +484,11 @@ pruneTree node = case node of
 
 type EvalItemTree = Tree (IO ()) EvalItem
 
-toEvalItemForest :: Params -> [SpecTree ()] -> [EvalItemTree]
+toEvalItemForest :: Params () -> [SpecTree ()] -> [EvalItemTree]
 toEvalItemForest params = bimapForest id toEvalItem . filterForest itemIsFocused
   where
     toEvalItem :: Item () -> EvalItem
-    toEvalItem (Item requirement loc isParallelizable _isFocused e) = EvalItem {
+    toEvalItem (Item requirement loc isParallelizable _isFocused _ e) = EvalItem {
       evalItemDescription = requirement
     , evalItemLocation = loc
     , evalItemConcurrency = if isParallelizable == Just True then Concurrent else Sequential
@@ -460,13 +498,13 @@ toEvalItemForest params = bimapForest id toEvalItem . filterForest itemIsFocused
     withUnit :: ActionWith () -> IO ()
     withUnit action = action ()
 
-dumpFailureReport :: Config -> Integer -> QC.Args -> [Path] -> IO ()
-dumpFailureReport config seed qcArgs xs = do
+dumpFailureReport :: Integer -> Config -> QuickCheckOptions -> [Path] -> IO ()
+dumpFailureReport seed config qopts xs = do
   writeFailureReport config FailureReport {
       failureReportSeed = seed
-    , failureReportMaxSuccess = QC.maxSuccess qcArgs
-    , failureReportMaxSize = QC.maxSize qcArgs
-    , failureReportMaxDiscardRatio = QC.maxDiscardRatio qcArgs
+    , failureReportMaxSuccess = getMaxSuccess qopts
+    , failureReportMaxSize = getMaxSize qopts
+    , failureReportMaxDiscardRatio = getMaxDiscardRatio qopts
     , failureReportPaths = xs
     }
 

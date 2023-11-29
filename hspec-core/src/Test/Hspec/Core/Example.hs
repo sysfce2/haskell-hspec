@@ -1,8 +1,11 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstrainedClassMethods #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Hspec.Core.Example (
 -- RE-EXPORTED from Test.Hspec.Core.Spec
@@ -23,6 +26,7 @@ module Test.Hspec.Core.Example (
 , exceptionToResultStatus
 , toLocation
 , hunitFailureToResult
+, exampleOptions
 ) where
 
 import           Prelude ()
@@ -31,6 +35,7 @@ import           Test.Hspec.Core.Compat
 import qualified Test.HUnit.Lang as HUnit
 
 import           Data.CallStack (SrcLoc(..))
+import           Data.Typeable
 
 import           Control.DeepSeq
 import qualified Test.QuickCheck as QC
@@ -39,22 +44,43 @@ import           Test.Hspec.Expectations (Expectation)
 import           Test.Hspec.Core.Util
 import           Test.Hspec.Core.QuickCheck.Util (liftHook)
 import           Test.Hspec.Core.Example.Location
+import           Test.Hspec.Core.Example.Options
 
 -- | A type class for examples
-class Example e where
+class Options (Opt e) => Example e where
   type Arg e
   type Arg e = ()
-  evaluateExample :: e -> Params -> (ActionWith (Arg e) -> IO ()) -> ProgressCallback -> IO Result
 
-data Params = Params {
+  type Opt e
+  type Opt e = ()
+
+  evaluateExample :: e -> Params (Opt e) -> (ActionWith (Arg e) -> IO ()) -> ProgressCallback -> IO Result
+
+exampleOptions :: Example a => a -> Maybe (TypeRep, OptionsParser OptionsSet)
+exampleOptions  = fmap (fmap toCustomOptions) . optionsParserFromExample
+
+optionsParserFromExample :: Example a => a -> Maybe (TypeRep, OptionsParser (Opt a))
+optionsParserFromExample _ = optionsParserFromType
+
+optionsParserFromType :: forall a. Options a => Maybe (TypeRep, OptionsParser a)
+optionsParserFromType = (,) (typeOf (undefined :: a)) <$> optionsParser
+
+data Params options = Params {
   paramsQuickCheckArgs  :: QC.Args
 , paramsSmallCheckDepth :: Maybe Int
-} deriving (Show)
+, paramsSeed :: Integer
+, paramsOptions :: options
+, paramsOptionsSet :: OptionsSet
+}
+{-# DEPRECATED paramsQuickCheckArgs "Use @getOptions \\@QuickCheckOptions . paramsOptionsSet@ instead." #-}
 
-defaultParams :: Params
+defaultParams :: Options options => Params options
 defaultParams = Params {
   paramsQuickCheckArgs = QC.stdArgs
 , paramsSmallCheckDepth = Nothing
+, paramsSeed = 0
+, paramsOptions = getOptions mempty
+, paramsOptionsSet = mempty
 }
 
 type Progress = (Int, Int)
@@ -102,8 +128,11 @@ forceResultStatus r = case r of
   Pending _ m -> m `deepseq` r
   Failure _ m -> m `deepseq` r
 
-safeEvaluateExample :: Example e => e -> Params -> (ActionWith (Arg e) -> IO ()) -> ProgressCallback -> IO Result
-safeEvaluateExample example params around progress = safeEvaluate $ evaluateExample example params around progress
+safeEvaluateExample :: Example e => e -> Params () -> (ActionWith (Arg e) -> IO ()) -> ProgressCallback -> IO Result
+safeEvaluateExample example params around = safeEvaluate . evaluateExample example (liftOptions params) around
+
+liftOptions :: Options options => Params () -> Params options
+liftOptions params = params { paramsOptions = getOptions (paramsOptionsSet params) }
 
 safeEvaluate :: IO Result -> IO Result
 safeEvaluate action = do
@@ -134,7 +163,7 @@ instance Example Result where
 
 instance Example (a -> Result) where
   type Arg (a -> Result) = a
-  evaluateExample example _params hook _callback = do
+  evaluateExample example _ hook _callback = do
     liftHook (Result "" Success) hook (evaluate . example)
 
 instance Example Bool where
@@ -143,7 +172,7 @@ instance Example Bool where
 
 instance Example (a -> Bool) where
   type Arg (a -> Bool) = a
-  evaluateExample p _params hook _callback = do
+  evaluateExample p _ hook _callback = do
     liftHook (Result "" Success) hook (evaluate . example)
     where
       example a

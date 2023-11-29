@@ -32,8 +32,10 @@ import           Test.Hspec.Core.Compat
 import           Data.Char
 import           System.FilePath
 import qualified Data.CallStack as CallStack
+import           Data.Typeable
 
 import           Test.Hspec.Core.Example
+import           Test.Hspec.Core.Example.Options
 
 -- | Internal tree data structure
 data Tree c a =
@@ -111,11 +113,14 @@ data Item a = Item {
   -- parallel with other spec items
 , itemIsParallelizable :: Maybe Bool
 
-  -- | A flag that indicates whether this spec item is focused.
+  -- | A flag that indicates whether this spec item is focused
 , itemIsFocused :: Bool
 
+  -- | A parser for custom options that are accepted by this spec item
+, itemOptions :: Maybe (TypeRep, OptionsParser OptionsSet)
+
   -- | Example for behavior
-, itemExample :: Params -> (ActionWith a -> IO ()) -> ProgressCallback -> IO Result
+, itemExample :: Params () -> (ActionWith a -> IO ()) -> ProgressCallback -> IO Result
 }
 
 -- | The @specGroup@ function combines a list of specs into a larger spec.
@@ -134,6 +139,7 @@ specItem s e = Leaf Item {
   , itemLocation = location
   , itemIsParallelizable = Nothing
   , itemIsFocused = False
+  , itemOptions = exampleOptions e
   , itemExample = safeEvaluateExample e
   }
 

@@ -20,8 +20,8 @@ import           Test.Hspec.Core.Config.Definition (Config(..))
 data FailureReport = FailureReport {
   failureReportSeed :: Integer
 , failureReportMaxSuccess :: Int
-, failureReportMaxSize :: Int
 , failureReportMaxDiscardRatio :: Int
+, failureReportMaxSize :: Int
 , failureReportPaths :: [Path]
 } deriving (Eq, Show, Read)
 

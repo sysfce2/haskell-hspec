@@ -9,6 +9,7 @@ module Test.Hspec.Core.QuickCheck (
 , modifyMaxSize
 , modifyMaxShrinks
 , modifyArgs
+, modifyOptions
 ) where
 
 import           Prelude ()
@@ -20,53 +21,50 @@ import qualified Test.QuickCheck.State as QC (numSuccessTests, maxSuccessTests)
 import qualified Test.QuickCheck.Property as QCP
 
 import           Test.Hspec.Core.Util
-import           Test.Hspec.Core.QuickCheck.Util
 import           Test.Hspec.Core.Example (Example(..), Params(..), Result(..), ResultStatus(..), FailureReason(..), hunitFailureToResult)
+import qualified Test.Hspec.Core.Example.Options as Example
 import           Test.Hspec.Core.Spec.Monad (SpecWith, modifyParams)
+
+import           Test.Hspec.Core.QuickCheck.Util
+import           Test.Hspec.Core.QuickCheck.Options (QuickCheckOptions)
+import qualified Test.Hspec.Core.QuickCheck.Options as Options
 
 -- | Use a modified `maxSuccess` for given spec.
 modifyMaxSuccess :: (Int -> Int) -> SpecWith a -> SpecWith a
-modifyMaxSuccess = modifyArgs . modify
-  where
-    modify :: (Int -> Int) -> Args -> Args
-    modify f args = args {maxSuccess = f (maxSuccess args)}
+modifyMaxSuccess = modifyOptions . Options.modifyMaxSuccess
 
 -- | Use a modified `maxDiscardRatio` for given spec.
 modifyMaxDiscardRatio :: (Int -> Int) -> SpecWith a -> SpecWith a
-modifyMaxDiscardRatio = modifyArgs . modify
-  where
-    modify :: (Int -> Int) -> Args -> Args
-    modify f args = args {maxDiscardRatio = f (maxDiscardRatio args)}
+modifyMaxDiscardRatio = modifyOptions . Options.modifyMaxDiscardRatio
 
 -- | Use a modified `maxSize` for given spec.
 modifyMaxSize :: (Int -> Int) -> SpecWith a -> SpecWith a
-modifyMaxSize = modifyArgs . modify
-  where
-    modify :: (Int -> Int) -> Args -> Args
-    modify f args = args {maxSize = f (maxSize args)}
+modifyMaxSize = modifyOptions . Options.modifyMaxSize
 
 -- | Use a modified `maxShrinks` for given spec.
 modifyMaxShrinks :: (Int -> Int) -> SpecWith a -> SpecWith a
-modifyMaxShrinks = modifyArgs . modify
-  where
-    modify :: (Int -> Int) -> Args -> Args
-    modify f args = args {maxShrinks = f (maxShrinks args)}
+modifyMaxShrinks = modifyOptions . Options.modifyMaxShrinks
 
 -- | Use modified `Args` for given spec.
 modifyArgs :: (Args -> Args) -> SpecWith a -> SpecWith a
-modifyArgs = modifyParams . modify
-  where
-    modify :: (Args -> Args) -> Params -> Params
-    modify f p = p {paramsQuickCheckArgs = f (paramsQuickCheckArgs p)}
+modifyArgs f = modifyOptions $ \ options -> options { Options.modifyArgs = f . Options.modifyArgs options }
+
+-- | Use modified `QuickCheckOptions` for given spec.
+modifyOptions :: (QuickCheckOptions -> QuickCheckOptions) -> SpecWith a -> SpecWith a
+modifyOptions f = modifyParams $ \ params -> params { paramsOptionsSet = (Example.modifyOptions f $ paramsOptionsSet params) }
 
 instance Example QC.Property where
   type Arg QC.Property = ()
+  type Opt QC.Property = QuickCheckOptions
   evaluateExample e = evaluateExample (\() -> e)
 
 instance Example (a -> QC.Property) where
   type Arg (a -> QC.Property) = a
+  type Opt (a -> QC.Property) = QuickCheckOptions
   evaluateExample p params hook progressCallback = do
-    let args = paramsQuickCheckArgs params
+    let
+      options = Example.getOptions $ paramsOptionsSet params
+      args = Options.toQuickCheckArgs (paramsSeed params) options
     r <- QC.quickCheckWithResult args {QC.chatty = False} (QCP.callback qcProgressCallback $ aroundProperty hook p)
     return $ fromQuickCheckResult args r
     where

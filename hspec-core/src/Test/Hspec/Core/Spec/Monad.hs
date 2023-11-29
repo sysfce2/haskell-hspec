@@ -79,7 +79,7 @@ mapSpecItem _ = mapSpecItem_
 mapSpecItem_ :: (Item a -> Item b) -> SpecWith a -> SpecWith b
 mapSpecItem_ = mapSpecForest . bimapForest id
 
-modifyParams :: (Params -> Params) -> SpecWith a -> SpecWith a
+modifyParams :: (Params () -> Params ()) -> SpecWith a -> SpecWith a
 modifyParams f = mapSpecItem_ $ \item -> item {itemExample = \p -> (itemExample item) (f p)}
 
 newtype Env = Env {
